@@ -18,7 +18,14 @@ public class Learn{
 	private static final String INPUT_PATH = INPUT_DIR + File.separator +
 											 INPUT_FILE;
 	private static final String OUTPUT_DIR = "stump_output";
+	private static final String OUTPUT_FILE = "stumps.txt";
+	private static final String OUTPUT_PATH = OUTPUT_DIR + File.separator +
+											  OUTPUT_FILE;
 
+	/**
+	 * For simplicity, this is chosen to allow for easy filtering of the input
+	 * file.
+	 */
 	private HashMap<String, Integer> stocks;
 
 	public static void main(String[] args){
