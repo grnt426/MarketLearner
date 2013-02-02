@@ -1,3 +1,4 @@
+import com.sun.org.apache.xpath.internal.res.XPATHErrorResources;
 import sun.dc.path.PathError;
 import sun.dc.pr.PathStroker;
 
@@ -14,16 +15,17 @@ public class Learn{
 
 	private static final String INPUT_FILE = "input_data.txt";
 	private static final String INPUT_DIR = "input";
+	private static final String INPUT_PATH = INPUT_DIR + File.separator +
+											 INPUT_FILE;
 	private static final String OUTPUT_DIR = "stump_output";
 
 	private HashMap<String, Integer> stocks;
 
 	public static void main(String[] args){
-		System.out.println("Looking for file '" + INPUT_DIR + "/" + INPUT_FILE +
-						   "'...");
+		System.out.println("Looking for file '" + INPUT_PATH + "'...");
 		Scanner input = null;
 		try{
-			input = new Scanner(new File(INPUT_DIR, INPUT_FILE));
+			input = new Scanner(new File(INPUT_PATH));
 		}
 		catch(FileNotFoundException e){
 			System.err.println("Unable to open file for processing! " +
