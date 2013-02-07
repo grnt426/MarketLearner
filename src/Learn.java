@@ -13,7 +13,7 @@ import java.util.Scanner;
  */
 public class Learn{
 
-	private static final String INPUT_FILE = "input_data.txt";
+	private static final String INPUT_FILE = "market_data.txt";
 	private static final String INPUT_DIR = "input";
 	private static final String INPUT_PATH = INPUT_DIR + File.separator +
 											 INPUT_FILE;
@@ -21,6 +21,14 @@ public class Learn{
 	private static final String OUTPUT_FILE = "stumps.txt";
 	private static final String OUTPUT_PATH = OUTPUT_DIR + File.separator +
 											  OUTPUT_FILE;
+
+	private static final int DATE = 0;
+	private static final int SYMB = 1;
+	private static final int OPEN = 2;
+	private static final int HIGH = 3;
+	private static final int LOW = 4;
+	private static final int CLOS = 5;
+	private static final int VOL = 6;
 
 	/**
 	 * For simplicity, this is chosen to allow for easy filtering of the input
