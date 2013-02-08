@@ -43,6 +43,11 @@ public class Learn{
 		Scanner input = null;
 		Scanner nasdaqInput = null;
 		BufferedWriter output = null;
+
+		// Make sure we get all the file handles we need before we get
+		// started doing the heavy-lifting, no need to have the user wait for
+		// several seconds before they know we can't read/write to a needed
+		// file!
 		try{
 			input = new Scanner(new File(INPUT_PATH));
 			nasdaqInput = new Scanner(new File(NASDAQ_PATH));
@@ -58,8 +63,13 @@ public class Learn{
 							   "Exiting...");
 			System.exit(1);
 		}
-		System.out.println("Found! Processing...");
+		System.out.println("Found!\nProcessing...");
 		new Learn(input, nasdaqInput, output);
+
+		// Just for some easy house keeping
+		input.close();
+		nasdaqInput.close();
+		System.out.println("Complete!");
 	}
 
 	public Learn(Scanner input, Scanner nasdaqInput, BufferedWriter output){
@@ -81,7 +91,6 @@ public class Learn{
 	private void createStumps(BufferedWriter output){
 		try{
 			for(String s : stocks.keySet()){
-				System.out.println(s + ": " + stocks.get(s));
 				output.write(s + ":" + stocks.get(s) + "\n");
 			}
 		}
