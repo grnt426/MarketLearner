@@ -1,5 +1,4 @@
-import java.io.File;
-import java.io.FileNotFoundException;
+import java.io.*;
 import java.util.HashMap;
 import java.util.Scanner;
 
@@ -40,31 +39,134 @@ public class Learn{
 	public static void main(String[] args){
 		System.out.println("Looking for file '" + INPUT_PATH + "'...");
 		System.out.println("Looking for file '" + NASDAQ_PATH + "'...");
+		System.out.println("Looking for file '" + OUTPUT_PATH + "'...");
 		Scanner input = null;
 		Scanner nasdaqInput = null;
+		BufferedWriter output = null;
 		try{
 			input = new Scanner(new File(INPUT_PATH));
 			nasdaqInput = new Scanner(new File(NASDAQ_PATH));
+			output = new BufferedWriter(new FileWriter(OUTPUT_PATH));
 		}
 		catch(FileNotFoundException e){
 			System.err.println("Unable to open file for processing! " +
 							   "Exiting...");
 			System.exit(1);
 		}
+		catch(IOException e){
+			System.err.println("Unable to open output file for processing! " +
+							   "Exiting...");
+			System.exit(1);
+		}
 		System.out.println("Found! Processing...");
-		new Learn(input, nasdaqInput);
+		new Learn(input, nasdaqInput, output);
 	}
 
-	public Learn(Scanner input, Scanner nasdaqInput){
+	public Learn(Scanner input, Scanner nasdaqInput, BufferedWriter output){
 		setupFilter();
 		nasdaq = new HashMap<String, Boolean>();
-		String line;
-		String values[];
-		String prevSymbol = null;
-		int prevSymbolCount = 0;
 
 		// first, process the NASDAQ file, compiling a list of days where it
 		// went up/down for each date
+		processNASDAQ(nasdaqInput);
+
+		// Next, read in the data for individual stocks on DJ30 and determine if
+		// the sign movement is in the same direction (Up)
+		processDowJones(input);
+
+		// Output a series of (weighted) decision stumps
+		createStumps(output);
+	}
+
+	private void createStumps(BufferedWriter output){
+		try{
+			for(String s : stocks.keySet()){
+				System.out.println(s + ": " + stocks.get(s));
+				output.write(s + ":" + stocks.get(s) + "\n");
+			}
+		}
+		catch(IOException e){
+			System.err.println("Unable to write results to file '"
+							   + OUTPUT_PATH + "'! Exiting...");
+			System.exit(1);
+		}
+		finally{
+			try{
+				output.close();
+			}
+			catch(IOException e){
+				System.err.println("Unable to close file handle for '"
+								   + OUTPUT_PATH + "'! Results may not have "
+								   + "been saved! Exiting...");
+				System.exit(1);
+			}
+		}
+	}
+
+	private void processDowJones(Scanner input){
+		String line;
+		String[] values;
+		String prevSymbol = null;
+		int prevSymbolCount = 0;
+
+		while(input.hasNext() && (line = input.nextLine()) != null){
+			values = line.split(",");
+
+			// Discard garbage lines, we don't know what to do with them anyway
+			if(values == null || values.length != 7){
+				continue;
+			}
+
+			String date = values[DATE];
+			String symbol = values[SYMB];
+
+			// Only process stocks on the Dow Jones
+			if(!stocks.containsKey(symbol)){
+				continue;
+			}
+
+			if(prevSymbol == null || !prevSymbol.equals(symbol)){
+				if(prevSymbol != null){
+					stocks.put(prevSymbol,
+							   stocks.get(prevSymbol) / prevSymbolCount);
+				}
+				prevSymbol = symbol;
+				prevSymbolCount = 0;
+			}
+			else{
+				prevSymbolCount++;
+			}
+
+			double open, close;
+			try{
+				open = Double.parseDouble(values[OPEN]);
+				close = Double.parseDouble(values[CLOS]);
+			}
+			catch(NumberFormatException nfe){
+				// Ignore it, we can't do anything with bad data
+				continue;
+			}
+
+			// For robustness, make sure we have the same dates, if not, just
+			// ignore it.  Again, there isn't much we can do anyway
+			if(!nasdaq.containsKey(date)){
+				continue;
+			}
+
+			// Increment if parallel movement (For now, only both Up)
+			stocks.put(symbol, stocks.get(symbol)
+							   + (nasdaq.get(date) && close > open ? 1 : 0));
+		}
+		if(prevSymbol != null){
+			stocks.put(prevSymbol, stocks.get(prevSymbol) / prevSymbolCount);
+		}
+	}
+
+	private void processNASDAQ(Scanner nasdaqInput){
+
+		String line;
+		String[] values;
+
 		while(nasdaqInput.hasNext() && (line = nasdaqInput.nextLine()) != null){
 			values = line.split(",");
 
@@ -85,59 +187,6 @@ public class Learn{
 
 			// Determine the movement (Up/Down)
 			nasdaq.put(values[DATE], (close > open));
-		}
-
-		// Next, read in the data for individual stocks on DJ30 and determine if
-		// the sign movement is in the same direction (Up)
-		while(input.hasNext() && (line = input.nextLine()) != null){
-			values = line.split(",");
-
-			// Discard garbage lines, we don't know what to do with them anyway
-			if(values == null || values.length != 7){
-				continue;
-			}
-
-			String date = values[DATE];
-			String symbol = values[SYMB];
-
-			// Only process stocks on the Dow Jones
-			if(!stocks.containsKey(symbol)){
-				continue;
-			}
-
-			if(prevSymbol == null || !prevSymbol.equals(symbol)){
-				if(prevSymbol != null)
-					stocks.put(prevSymbol,
-							   stocks.get(prevSymbol) / prevSymbolCount);
-				prevSymbol = symbol;
-				prevSymbolCount = 0;
-			}
-			else{
-				prevSymbolCount++;
-			}
-
-			double open, close;
-			try{
-				open = Double.parseDouble(values[OPEN]);
-				close = Double.parseDouble(values[CLOS]);
-			}
-			catch(NumberFormatException nfe){
-				// Ignore it, we can't do anything with bad data
-				continue;
-			}
-
-			// For robustness, make sure we have the same dates, if not, just
-			// ignore it.  Again, there isn't much we can do anyway
-			if(!nasdaq.containsKey(date))
-				continue;
-
-			// Increment if parallel movement (For now, only both Up)
-			stocks.put(symbol, stocks.get(symbol)
-							   + (nasdaq.get(date) && close > open ? 1 : 0));
-		}
-
-		for(String s : stocks.keySet()){
-			System.out.println(s + ": " + stocks.get(s));
 		}
 	}
 
