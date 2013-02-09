@@ -9,15 +9,22 @@ public class ParallelMovement implements Hypothesis{
 
 	private static HashMap<String, HashMap<String, ModelData>> data = null;
 	private String symbol;
-	private boolean result = false;
 
 	public ParallelMovement(HashMap<String, HashMap<String, ModelData>> data, String symbol){
 		this.data = data;
 		this.symbol = symbol;
 	}
 
-	public boolean isRight(Example ex){
+	public int prediction(Example ex){
+		if(data.get(ex.date) == null)
+			return 0;
 		ModelData model = data.get(ex.date).get(symbol);
-		return ex.close > ex.open && model.close > model.open;
+		if(model == null)
+			return 0;
+		return model.close > model.open ? 1 : -1;
+	}
+
+	public String toString(){
+		return "PA," + symbol;
 	}
 }

@@ -78,28 +78,19 @@ public class Learn{
 		// Create our set of Hypothesis
 		createHypothesis();
 
-		// For debugging, to compare to the results after Adaboost
-		for(String key : stocks.keySet()){
-			System.out.println(key + ": " + stocks.get(key));
-		}
-
 		// Now, we need to use AdaBoost to improve the accuracy of our
 		// hypothesis
-		boost();
-
-		// For debugging, to compare to the results after Adaboost
-		for(String key : stocks.keySet()){
-			System.out.println(key + ": " + stocks.get(key));
-		}
+		double[] weights = boost();
 
 		// Output a series of (weighted) decision stumps
-		outputStumps(output);
+		outputStumps(output, weights);
 	}
 
 	private void createHypothesis(){
 
 		// Our first set of hypothesis is to correlate an individual stock's
 		// movement with the NASDAQ
+		hypothesises = new ArrayList<Hypothesis>();
 		for(String symbol : filter){
 			hypothesises.add(new ParallelMovement(stocks, symbol));
 		}
@@ -109,23 +100,31 @@ public class Learn{
 
 		// Initially, all hypothesis are equally likely, so each hypothesis gets
 		// an equal weight
-		double[] exampleWeights = new double[hypothesises.size()];
-		Arrays.fill(exampleWeights, (1 / hypothesises.size()));
-		double[] resultWeights = new double[hypothesises.size()];
+		double[] exampleWeights = new double[nasdaq.size()];
+		Arrays.fill(exampleWeights, (1.0 / nasdaq.size()));
+		double[] resultWeights = new double[nasdaq.size()];
 		for(int model = 0; model < hypothesises.size(); model++){
-			double error = 0;
+			double error = 0.0;
 			for(int ex = 0; ex < nasdaq.size(); ex++){
-				if(!hypothesises.get(model).isRight(nasdaq.get(ex))){
+				int prediction = hypothesises.get(model).prediction(
+						nasdaq.get(ex));
+				int movement = nasdaq.get(ex).close > nasdaq.get(ex).close ?
+							   1 : -1;
+				if(prediction != 0 && prediction != movement){
 					error += exampleWeights[ex];
 				}
 			}
 			for(int ex = 0; ex < nasdaq.size(); ex++){
-				if(hypothesises.get(model).isRight(nasdaq.get(ex))){
-					exampleWeights[ex] *= error / (1 - error);
+				int prediction = hypothesises.get(model).prediction(
+						nasdaq.get(ex));
+				int movement = nasdaq.get(ex).close > nasdaq.get(ex).close ?
+							   1 : -1;
+				if(prediction != 0 && prediction == movement){
+					exampleWeights[ex] *= error / (1.0 - error);
 				}
 			}
 			normalize(exampleWeights);
-			resultWeights[model] = Math.log((1 - error) / error);
+			resultWeights[model] = Math.log((1.0 - error) / error);
 		}
 		return resultWeights;
 	}
@@ -140,10 +139,12 @@ public class Learn{
 	}
 
 
-	private void outputStumps(BufferedWriter output){
+	private void outputStumps(BufferedWriter output, double[] weights){
 		try{
-			for(String s : stocks.keySet()){
-				output.write(s + ":" + stocks.get(s) + "\n");
+			int weight = 0;
+			for(Hypothesis h : hypothesises){
+				output.write(h + "," + weights[weight] + "\n");
+				weight++;
 			}
 		}
 		catch(IOException e){
@@ -167,6 +168,7 @@ public class Learn{
 	private void processDowJones(Scanner input){
 		String line;
 		String[] values;
+		stocks = new HashMap<String, HashMap<String, ModelData>>();
 
 		while(input.hasNext() && (line = input.nextLine()) != null){
 			values = line.split(",");
