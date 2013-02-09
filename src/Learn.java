@@ -23,11 +23,11 @@ public class Learn{
 	 * For simplicity, this is chosen to allow for easy filtering of the input
 	 * file.
 	 */
-	private HashMap<String, ModelData> stocks;
+	private HashMap<String, HashMap<String, ModelData>> stocks;
 	private HashSet<String> filter;
 	private ArrayList<Hypothesis> hypothesises;
 
-	private HashMap<String, Example> nasdaq;
+	private ArrayList<Example> nasdaq;
 
 	public static void main(String[] args){
 		System.out.println("Looking for file '" + INPUT_PATH + "'...");
@@ -67,7 +67,6 @@ public class Learn{
 
 	public Learn(Scanner input, Scanner nasdaqInput, BufferedWriter output){
 		setupFilter();
-		nasdaq = new HashMap<String, Example>();
 
 		// first, process the NASDAQ file, compiling a list of days where it
 		// went up/down for each date
@@ -106,7 +105,7 @@ public class Learn{
 		}
 	}
 
-	private void boost(){
+	private double[] boost(){
 
 		// Initially, all hypothesis are equally likely, so each hypothesis gets
 		// an equal weight
@@ -116,8 +115,27 @@ public class Learn{
 		for(int model = 0; model < hypothesises.size(); model++){
 			double error = 0;
 			for(int ex = 0; ex < nasdaq.size(); ex++){
-
+				if(!hypothesises.get(model).isRight(nasdaq.get(ex))){
+					error += exampleWeights[ex];
+				}
 			}
+			for(int ex = 0; ex < nasdaq.size(); ex++){
+				if(hypothesises.get(model).isRight(nasdaq.get(ex))){
+					exampleWeights[ex] *= error / (1 - error);
+				}
+			}
+			normalize(exampleWeights);
+			resultWeights[model] = Math.log((1 - error) / error);
+		}
+		return resultWeights;
+	}
+
+	private void normalize(double[] exampleWeights){
+		double total = 0.0;
+		for(double d : exampleWeights)
+			total += d;
+		for(int w = 0; w < exampleWeights.length; w++){
+			exampleWeights[w] = exampleWeights[w] / total;
 		}
 	}
 
@@ -169,7 +187,6 @@ public class Learn{
 			double open, close, high, low;
 			int volume;
 			try{
-
 				open = Double.parseDouble(values[2]);
 				high = Double.parseDouble(values[3]);
 				low = Double.parseDouble(values[4]);
@@ -181,14 +198,12 @@ public class Learn{
 				continue;
 			}
 
-			// For robustness, make sure we have the same dates, if not, just
-			// ignore it.  Again, there isn't much we can do anyway
-			if(!nasdaq.containsKey(date)){
-				continue;
-			}
-
 			// Store this result
-			stocks.put(date, new ModelData(symbol, open, high, low, close, volume));
+			if(stocks.get(date) == null){
+				stocks.put(date, new HashMap<String, ModelData>());
+			}
+			stocks.get(date).put(symbol, new ModelData(symbol, open, high, low,
+													   close, volume));
 		}
 	}
 
@@ -196,6 +211,7 @@ public class Learn{
 
 		String line;
 		String[] values;
+		nasdaq = new ArrayList<Example>();
 
 		while(nasdaqInput.hasNext() && (line = nasdaqInput.nextLine()) != null){
 			values = line.split(",");
@@ -222,7 +238,7 @@ public class Learn{
 			}
 
 			// Determine the movement (Up/Down)
-			nasdaq.put(date, new Example(date, open, high, low, close, volume, adjustedClosed));
+			nasdaq.add(new Example(date, open, high, low, close, volume, adjustedClosed));
 		}
 	}
 
