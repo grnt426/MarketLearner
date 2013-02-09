@@ -1,6 +1,5 @@
 import java.io.*;
-import java.util.HashMap;
-import java.util.Scanner;
+import java.util.*;
 
 /**
  * Author:      Grant Kurtz
@@ -20,21 +19,15 @@ public class Learn{
 	private static final String OUTPUT_PATH = OUTPUT_DIR + File.separator +
 											  OUTPUT_FILE;
 
-	private static final int DATE = 0;
-	private static final int SYMB = 1;
-	private static final int OPEN = 2;
-	private static final int HIGH = 3;
-	private static final int LOW = 4;
-	private static final int CLOS = 5;
-	private static final int VOL = 6;
-
 	/**
 	 * For simplicity, this is chosen to allow for easy filtering of the input
 	 * file.
 	 */
-	private HashMap<String, Double> stocks;
+	private HashMap<String, ModelData> stocks;
+	private HashSet<String> filter;
+	private ArrayList<Hypothesis> hypothesises;
 
-	private HashMap<String, Boolean> nasdaq;
+	private HashMap<String, Example> nasdaq;
 
 	public static void main(String[] args){
 		System.out.println("Looking for file '" + INPUT_PATH + "'...");
@@ -74,21 +67,62 @@ public class Learn{
 
 	public Learn(Scanner input, Scanner nasdaqInput, BufferedWriter output){
 		setupFilter();
-		nasdaq = new HashMap<String, Boolean>();
+		nasdaq = new HashMap<String, Example>();
 
 		// first, process the NASDAQ file, compiling a list of days where it
 		// went up/down for each date
 		processNASDAQ(nasdaqInput);
 
-		// Next, read in the data for individual stocks on DJ30 and determine if
-		// the sign movement is in the same direction (Up)
+		// Next, read in the data for individual stocks on DJ30
 		processDowJones(input);
 
+		// Create our set of Hypothesis
+		createHypothesis();
+
+		// For debugging, to compare to the results after Adaboost
+		for(String key : stocks.keySet()){
+			System.out.println(key + ": " + stocks.get(key));
+		}
+
+		// Now, we need to use AdaBoost to improve the accuracy of our
+		// hypothesis
+		boost();
+
+		// For debugging, to compare to the results after Adaboost
+		for(String key : stocks.keySet()){
+			System.out.println(key + ": " + stocks.get(key));
+		}
+
 		// Output a series of (weighted) decision stumps
-		createStumps(output);
+		outputStumps(output);
 	}
 
-	private void createStumps(BufferedWriter output){
+	private void createHypothesis(){
+
+		// Our first set of hypothesis is to correlate an individual stock's
+		// movement with the NASDAQ
+		for(String symbol : filter){
+			hypothesises.add(new ParallelMovement(stocks, symbol));
+		}
+	}
+
+	private void boost(){
+
+		// Initially, all hypothesis are equally likely, so each hypothesis gets
+		// an equal weight
+		double[] exampleWeights = new double[hypothesises.size()];
+		Arrays.fill(exampleWeights, (1 / hypothesises.size()));
+		double[] resultWeights = new double[hypothesises.size()];
+		for(int model = 0; model < hypothesises.size(); model++){
+			double error = 0;
+			for(int ex = 0; ex < nasdaq.size(); ex++){
+
+			}
+		}
+	}
+
+
+	private void outputStumps(BufferedWriter output){
 		try{
 			for(String s : stocks.keySet()){
 				output.write(s + ":" + stocks.get(s) + "\n");
@@ -115,8 +149,6 @@ public class Learn{
 	private void processDowJones(Scanner input){
 		String line;
 		String[] values;
-		String prevSymbol = null;
-		int prevSymbolCount = 0;
 
 		while(input.hasNext() && (line = input.nextLine()) != null){
 			values = line.split(",");
@@ -126,30 +158,23 @@ public class Learn{
 				continue;
 			}
 
-			String date = values[DATE];
-			String symbol = values[SYMB];
+			String date = values[0];
+			String symbol = values[1];
 
 			// Only process stocks on the Dow Jones
-			if(!stocks.containsKey(symbol)){
+			if(!filter.contains(symbol)){
 				continue;
 			}
 
-			if(prevSymbol == null || !prevSymbol.equals(symbol)){
-				if(prevSymbol != null){
-					stocks.put(prevSymbol,
-							   stocks.get(prevSymbol) / prevSymbolCount);
-				}
-				prevSymbol = symbol;
-				prevSymbolCount = 0;
-			}
-			else{
-				prevSymbolCount++;
-			}
-
-			double open, close;
+			double open, close, high, low;
+			int volume;
 			try{
-				open = Double.parseDouble(values[OPEN]);
-				close = Double.parseDouble(values[CLOS]);
+
+				open = Double.parseDouble(values[2]);
+				high = Double.parseDouble(values[3]);
+				low = Double.parseDouble(values[4]);
+				close = Double.parseDouble(values[5]);
+				volume = Integer.parseInt(values[6]);
 			}
 			catch(NumberFormatException nfe){
 				// Ignore it, we can't do anything with bad data
@@ -162,12 +187,8 @@ public class Learn{
 				continue;
 			}
 
-			// Increment if parallel movement (For now, only both Up)
-			stocks.put(symbol, stocks.get(symbol)
-							   + (nasdaq.get(date) && close > open ? 1 : 0));
-		}
-		if(prevSymbol != null){
-			stocks.put(prevSymbol, stocks.get(prevSymbol) / prevSymbolCount);
+			// Store this result
+			stocks.put(date, new ModelData(symbol, open, high, low, close, volume));
 		}
 	}
 
@@ -184,10 +205,16 @@ public class Learn{
 				continue;
 			}
 
-			double open, close;
+			double open, close, high, low, adjustedClosed;
+			int volume;
+			String date = values[0];
 			try{
-				open = Double.parseDouble(values[OPEN - 1]);
-				close = Double.parseDouble(values[CLOS - 1]);
+				open = Double.parseDouble(values[1]);
+				high = Double.parseDouble(values[2]);
+				low = Double.parseDouble(values[3]);
+				close = Double.parseDouble(values[4]);
+				volume = Integer.parseInt(values[5]);
+				adjustedClosed = Double.parseDouble(values[6]);
 			}
 			catch(NumberFormatException nfe){
 				// Ignore it, we can't do anything with bad data
@@ -195,7 +222,7 @@ public class Learn{
 			}
 
 			// Determine the movement (Up/Down)
-			nasdaq.put(values[DATE], (close > open));
+			nasdaq.put(date, new Example(date, open, high, low, close, volume, adjustedClosed));
 		}
 	}
 
@@ -204,36 +231,36 @@ public class Learn{
 	 * we are interested in processing.
 	 */
 	private void setupFilter(){
-		stocks = new HashMap<String, Double>();
-		stocks.put("MMM", 0.0);
-		stocks.put("AA", 0.0);
-		stocks.put("AXP", 0.0);
-		stocks.put("T", 0.0);
-		stocks.put("BAC", 0.0);
-		stocks.put("BA", 0.0);
-		stocks.put("CAT", 0.0);
-		stocks.put("CVX", 0.0);
-		stocks.put("CSCO", 0.0);
-		stocks.put("KO", 0.0);
-		stocks.put("DD", 0.0);
-		stocks.put("XOM", 0.0);
-		stocks.put("GE", 0.0);
-		stocks.put("HPQ", 0.0);
-		stocks.put("HD", 0.0);
-		stocks.put("INTC", 0.0);
-		stocks.put("IBM", 0.0);
-		stocks.put("JNJ", 0.0);
-		stocks.put("JPM", 0.0);
-		stocks.put("MCD", 0.0);
-		stocks.put("MRK", 0.0);
-		stocks.put("MSFT", 0.0);
-		stocks.put("PFE", 0.0);
-		stocks.put("PG", 0.0);
-		stocks.put("TRV", 0.0);
-		stocks.put("UNH", 0.0);
-		stocks.put("UTX", 0.0);
-		stocks.put("VZ", 0.0);
-		stocks.put("WMT", 0.0);
-		stocks.put("DIS", 0.0);
+		filter = new HashSet<String>();
+		filter.add("MMM");
+		filter.add("AA");
+		filter.add("AXP");
+		filter.add("T");
+		filter.add("BAC");
+		filter.add("BA");
+		filter.add("CAT");
+		filter.add("CVX");
+		filter.add("CSCO");
+		filter.add("KO");
+		filter.add("DD");
+		filter.add("XOM");
+		filter.add("GE");
+		filter.add("HPQ");
+		filter.add("HD");
+		filter.add("INTC");
+		filter.add("IBM");
+		filter.add("JNJ");
+		filter.add("JPM");
+		filter.add("MCD");
+		filter.add("MRK");
+		filter.add("MSFT");
+		filter.add("PFE");
+		filter.add("PG");
+		filter.add("TRV");
+		filter.add("UNH");
+		filter.add("UTX");
+		filter.add("VZ");
+		filter.add("WMT");
+		filter.add("DIS");
 	}
 }
