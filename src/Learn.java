@@ -94,6 +94,7 @@ public class Learn{
 		for(String symbol : filter){
 			hypothesises.add(new ParallelMovement(stocks, symbol));
 		}
+		hypothesises.add(new TotalMovement(stocks));
 	}
 
 	private double[] boost(){

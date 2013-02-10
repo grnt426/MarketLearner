@@ -74,7 +74,9 @@ public class TestTraining{
 			// We also only care about the magnitude of the hypothesis, since a
 			// negative result just means that the hypothesis predicts the
 			// opposite.
-			double weight = Math.abs(Double.parseDouble(values[values.length - 1]));
+			// NOTE: Current Results suggest taking just the magnitude is not
+			// correct, may adjust later.
+			double weight = Double.parseDouble(values[values.length - 1]);
 			insertIfBest(weight, line, hypothesisData, hypothesisWeight);
 		}
 

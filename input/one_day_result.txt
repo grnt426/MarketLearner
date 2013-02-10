@@ -1,0 +1,3 @@
+-1
+NASDAQ Went Down
+Was picked randomly from the training data provided

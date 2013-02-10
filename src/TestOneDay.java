@@ -52,7 +52,8 @@ public class TestOneDay{
 		for(Hypothesis h : hypothesis){
 			prediction += h.prediction(ex) * h.getWeight();
 		}
-		System.out.println("Prediction: " + prediction);
+		System.out.print("Prediction: ");
+		System.out.println( (prediction + 0.1) > 0.0 ? "Up" : "Down");
 	}
 
 	private ArrayList<Hypothesis> readHypothesis(Scanner stumpInput,

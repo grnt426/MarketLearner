@@ -14,6 +14,10 @@ public class HypothesisFactory{
 			h = new ParallelMovement(stocks, symbol);
 			h.setWeight(Double.parseDouble(values[2]));
 		}
+		else if(name.equals("TO")){
+			h = new TotalMovement(stocks);
+			h.setWeight(Double.parseDouble(values[1]));
+		}
 		return h;
 	}
 }
