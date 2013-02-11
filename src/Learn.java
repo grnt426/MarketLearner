@@ -3,30 +3,52 @@ import java.util.*;
 
 /**
  * Author:      Grant Kurtz
+ *
+ * Learn will attempt to find the set of Hypothesis (stumps) that best correlate
+ * with movements on the NASDAQ. The stumps are given weights as determined
+ * by the AdaBoost algorithm.
  */
 public class Learn{
 
+	// The input file used for training our learning models.
 	private static final String INPUT_FILE = "market_data.txt";
 	private static final String INPUT_DIR = "input";
 	private static final String INPUT_PATH = INPUT_DIR + File.separator +
 											 INPUT_FILE;
+
+	// The expected result for the NASDAQ movement on a given day.
 	private static final String NASDAQ_FILE = "nasdaq_data.csv";
 	private static final String NASDAQ_DIR = "input";
 	private static final String NASDAQ_PATH = NASDAQ_DIR + File.separator +
 											  NASDAQ_FILE;
+
+	// The Hypothesis (stumps) and their weights used to build our model.
 	private static final String OUTPUT_DIR = "stump_output";
 	private static final String OUTPUT_FILE = "stumps.txt";
 	private static final String OUTPUT_PATH = OUTPUT_DIR + File.separator +
 											  OUTPUT_FILE;
 
 	/**
-	 * For simplicity, this is chosen to allow for easy filtering of the input
-	 * file.
+	 * This nested HashMap was chosen to efficiently aid in Hypothesis answers.
+	 * Since all lookups are highly dependent on the data and the stock, we want
+	 * to hash on those values.
 	 */
 	private HashMap<String, HashMap<String, ModelData>> stocks;
+
+	/*
+	 * The INPUT_FILE has data for stocks not listed on the DJ30, so this simple
+	 * filter is used to ignore stocks not on the DJ30.
+	 */
 	private HashSet<String> filter;
+
+	/*
+	 * The list of hypothesis about the NASDAQ market movements.
+	 */
 	private ArrayList<Hypothesis> hypothesises;
 
+	/*
+	 * Market data that explicitly states how the market moved for a given date.
+	 */
 	private ArrayList<Example> nasdaq;
 
 	public static void main(String[] args){
@@ -72,7 +94,7 @@ public class Learn{
 		// went up/down for each date
 		processNASDAQ(nasdaqInput);
 
-		// Next, read in the data for individual stocks on DJ30
+		// Next, read in the data for individual stocks on the DJ30
 		processDowJones(input);
 
 		// Create our set of Hypothesis
@@ -86,6 +108,11 @@ public class Learn{
 		outputStumps(output, weights);
 	}
 
+	/**
+	 * Given the stock data that represents the time period we are training
+	 * against, the Hypothesis will make predictions on that data about the
+	 * NASDAQ.
+	 */
 	private void createHypothesis(){
 
 		// Our first set of hypothesis is to correlate an individual stock's
@@ -94,18 +121,39 @@ public class Learn{
 		for(String symbol : filter){
 			hypothesises.add(new ParallelMovement(stocks, symbol));
 		}
+
+		// We can try and correlate total stock market movements
 		hypothesises.add(new TotalMovement(stocks));
 	}
 
+	/**
+	 * The implementation of AdaBoost, as specified during lecture and in the
+	 * book, "Artificial Intelligence: A Modern Approach", Third Edition,
+	 * Section 18.10, figure 18.34 (page 751). The only liberty taken was to
+	 * ignore results from Hypothesis if a zero was returned.  This is done
+	 * because the Hypothesis probably didn't have data for that day, and so
+	 * to avoid skewing the model in any particular direction error is not
+	 * accumulated or applied for those days.
+	 *
+	 * @return	The set of weights for each Hypothesis.
+	 */
 	private double[] boost(){
 
 		// Initially, all hypothesis are equally likely, so each hypothesis gets
-		// an equal weight
+		// an equal weight.
 		double[] exampleWeights = new double[nasdaq.size()];
 		Arrays.fill(exampleWeights, (1.0 / nasdaq.size()));
+
+		// The result weights don't get any special treatment.  Java initializes
+		// primitive arrays to '0' for us, so no filling needed.
 		double[] resultWeights = new double[nasdaq.size()];
+
+		// Each model needs to be processed and assigned an individual weight
+		// according to how well it predicts NASDAQ movement.
 		for(int model = 0; model < hypothesises.size(); model++){
 			double error = 0.0;
+
+			// First, accumulate error linearly
 			for(int ex = 0; ex < nasdaq.size(); ex++){
 				int prediction = hypothesises.get(model).prediction(
 						nasdaq.get(ex));
@@ -115,6 +163,9 @@ public class Learn{
 					error += exampleWeights[ex];
 				}
 			}
+
+			// Then, modify the initial weight logarithmically so as to place
+			// a harsher value on incorrect models.
 			for(int ex = 0; ex < nasdaq.size(); ex++){
 				int prediction = hypothesises.get(model).prediction(
 						nasdaq.get(ex));
@@ -124,13 +175,21 @@ public class Learn{
 					exampleWeights[ex] *= error / (1.0 - error);
 				}
 			}
+
+			// Normalize our results for simplicity
 			normalize(exampleWeights);
 			resultWeights[model] = Math.log((1.0 - error) / error);
 		}
 		return resultWeights;
 	}
 
-	private void normalize(double[] exampleWeights){
+	/**
+	 * Nothing special, just a standard normalize function.  Noramalization
+	 * is made for 1.0.
+	 *
+	 * @param exampleWeights	The array of weights to normalize across.
+	 */
+	private void normalize(final double[] exampleWeights){
 		double total = 0.0;
 		for(double d : exampleWeights)
 			total += d;
@@ -139,7 +198,13 @@ public class Learn{
 		}
 	}
 
-
+	/**
+	 * Outputs a "stringified" version of the Hypothesis.  This was chosen
+	 * over serialization for its simplicity.
+	 *
+	 * @param output	The file handler to output the results to.
+	 * @param weights	The set of weights for each Hypothesis.
+	 */
 	private void outputStumps(BufferedWriter output, double[] weights){
 		try{
 			int weight = 0;
@@ -166,6 +231,19 @@ public class Learn{
 		}
 	}
 
+	/**
+	 * Dumps all the Dow Jones Industrial Average data for later use in
+	 * producing predictions for Hypothesis.
+	 *
+	 * The expected format is as follows:
+	 * YYYYMMDD,SYMBOL,OPEN,HIGH,LOW,CLOSE,VOLUME
+	 *
+	 * Each line will be unique across the Date and Symbol, and any line not
+	 * conforming to the above format is discarded. Any unparsable values will
+	 * also have the data for that stock on that day thrown out.
+	 *
+	 * @param input	The file handler to read from.
+	 */
 	private void processDowJones(Scanner input){
 		String line;
 		String[] values;
@@ -210,6 +288,19 @@ public class Learn{
 		}
 	}
 
+	/**
+	 * Dumps all the NASDAQ results for later use in fine-tuning the predictions
+	 * of Hypothesis.
+	 *
+	 * The expected format of each line is as follows:
+	 * YYYYMMDD,OPEN,HIGH,LOW,CLOSE,VOLUME,ADJUSTED_CLOSE
+	 *
+	 * Each line will be unique across the Date, and any line not
+	 * conforming to the above format is discarded. Any unparsable values will
+	 * also have the data for that day thrown out.
+	 *
+	 * @param nasdaqInput	The file handler to read from.
+	 */
 	private void processNASDAQ(Scanner nasdaqInput){
 
 		String line;
@@ -246,7 +337,7 @@ public class Learn{
 	}
 
 	/**
-	 * Initializes the stocks map with the 30 stocks listed on the Doq Jones that
+	 * Initializes the filter with the 30 stocks listed on the Doq Jones that
 	 * we are interested in processing.
 	 */
 	private void setupFilter(){
