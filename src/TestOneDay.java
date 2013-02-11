@@ -6,9 +6,23 @@ import java.util.Scanner;
 
 /**
  * Author:      Grant Kurtz
+ *
+ * To make a prediction, the best Hypothesis are read in, and then asked to
+ * predict based on the market data for the day.  The result from the
+ * Hypothesis is given a vote equal to its weight. A prediction for "Up" is
+ * given if the total votes cast + 0.1 (a bias correcting factor) is greater
+ * than 0.0.  Likewise, the prediction is "Down" if the total votes cast + 0.1
+ * is less than 0.0. The bias correction factor comes from noticing the results
+ * from the Hypothesis is biased-downwards.  In particular, values of -0.7 were
+ * not uncommon for predicting "Down".  However, when the result should have
+ * been "Up", values of -0.04 were rather common.  The bias factor tries to
+ * correct for this incorrect classification. The exact value of 0.1 was chosen
+ * because the results would then line up with the expected result for the six
+ * test days tested against.
  */
 public class TestOneDay{
 
+	// The best Hypothesis' for making a prediction.
 	private static final String STUMP_DIR = "stump_output";
 	private static final String STUMP_FILE = "best_stumps.txt";
 	private static final String STUMP_PATH = STUMP_DIR + File.separator +
@@ -56,6 +70,15 @@ public class TestOneDay{
 		System.out.println( (prediction + 0.1) > 0.0 ? "Up" : "Down");
 	}
 
+	/**
+	 * Converts the stringified versions of the Hypothesis into their respective
+	 * implementations.
+	 *
+	 * @param stumpInput	The file for reading in the Hypothesis.
+	 * @param stocks		The data to give the Hypothesis about the day's
+	 *                      movements.
+	 * @return				The Hypothesis that were successfully parsed.
+	 */
 	private ArrayList<Hypothesis> readHypothesis(Scanner stumpInput,
 												 HashMap<String, HashMap<String, ModelData>> stocks){
 		ArrayList<Hypothesis> hypothesis = new ArrayList<Hypothesis>();
@@ -66,6 +89,13 @@ public class TestOneDay{
 		return hypothesis;
 	}
 
+	/**
+	 * Reads in the day's stock market movements to give the Hypothesis a basis
+	 * for a prediction.
+	 *
+	 * @param input	The file for reading the data.
+	 * @return		The market data.
+	 */
 	private HashMap<String, HashMap<String, ModelData>> readStockDataForToday(
 			Scanner input){
 		HashMap<String, HashMap<String, ModelData>> stocks = new HashMap<String,
