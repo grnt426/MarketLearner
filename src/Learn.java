@@ -200,7 +200,9 @@ public class Learn{
 
 	/**
 	 * Outputs a "stringified" version of the Hypothesis.  This was chosen
-	 * over serialization for its simplicity.
+	 * over serialization for its simplicity. In particular, stringifying
+	 * is easier for the TestTraining program where the Hypothesis isn't
+	 * rebuilt.
 	 *
 	 * @param output	The file handler to output the results to.
 	 * @param weights	The set of weights for each Hypothesis.
