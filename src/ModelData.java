@@ -8,10 +8,10 @@ public class ModelData{
 	public double high;
 	public double low;
 	public double close;
-	public int volume;
+	public long volume;
 
 	public ModelData(String symbol, double open, double high, double low,
-					 double close, int volume){
+					 double close, long volume){
 		this.symbol = symbol;
 		this.open = open;
 		this.high = high;

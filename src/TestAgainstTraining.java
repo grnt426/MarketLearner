@@ -22,10 +22,10 @@ public class TestAgainstTraining{
 											  NASDAQ_FILE;
 
 	// The best Hypothesis' for making a prediction.
-		private static final String STUMP_DIR = "stump_output";
-		private static final String STUMP_FILE = "best_stumps.txt";
-		private static final String STUMP_PATH = STUMP_DIR + File.separator +
-												 STUMP_FILE;
+	private static final String STUMP_DIR = "stump_output";
+	private static final String STUMP_FILE = "best_stumps.txt";
+	private static final String STUMP_PATH = STUMP_DIR + File.separator +
+											 STUMP_FILE;
 
 	private HashMap<String, HashMap<String, ModelData>> stocks;
 	private HashSet<String> filter;
@@ -59,9 +59,21 @@ public class TestAgainstTraining{
 		setupFilter();
 		processNASDAQ(nasdaqInput);
 		processDowJones(input);
-		readHypothesis(stumps, stocks);
-
-
+		ArrayList<Hypothesis> hypothesis = readHypothesis(stumps, stocks);
+		double correct = 0.0;
+		for(Example ex : nasdaq){
+			double vote = 0.0;
+			for(Hypothesis h : hypothesis){
+				vote += h.prediction(ex) * h.getWeight();
+			}
+			if(vote > 0 && ex.close > ex.open){
+				correct += 1.0;
+			}
+			else if(vote < 0 && ex.open > ex.close){
+				correct += 1.0;
+			}
+		}
+		System.out.println("Percent Correct: " + correct / nasdaq.size() * 100 + "%");
 	}
 
 	/**
@@ -71,8 +83,8 @@ public class TestAgainstTraining{
 	 * The expected format is as follows: YYYYMMDD,SYMBOL,OPEN,HIGH,LOW,CLOSE,VOLUME
 	 * <p/>
 	 * Each line will be unique across the Date and Symbol, and any line not
-	 * conforming to the above format is discarded. Any unparsable values will
-	 * also have the data for that stock on that day thrown out.
+	 * conforming to the above format is discarded. Any unparsable values will also
+	 * have the data for that stock on that day thrown out.
 	 *
 	 * @param input The file handler to read from.
 	 */
@@ -98,13 +110,13 @@ public class TestAgainstTraining{
 			}
 
 			double open, close, high, low;
-			int volume;
+			long volume;
 			try{
 				open = Double.parseDouble(values[2]);
 				high = Double.parseDouble(values[3]);
 				low = Double.parseDouble(values[4]);
 				close = Double.parseDouble(values[5]);
-				volume = Integer.parseInt(values[6]);
+				volume = Long.parseLong(values[6]);
 			}
 			catch(NumberFormatException nfe){
 				// Ignore it, we can't do anything with bad data
@@ -121,14 +133,14 @@ public class TestAgainstTraining{
 	}
 
 	/**
-	 * Dumps all the NASDAQ results for later use in fine-tuning the predictions
-	 * of Hypothesis.
+	 * Dumps all the NASDAQ results for later use in fine-tuning the predictions of
+	 * Hypothesis.
 	 * <p/>
 	 * The expected format of each line is as follows: YYYYMMDD,OPEN,HIGH,LOW,CLOSE,VOLUME,ADJUSTED_CLOSE
 	 * <p/>
-	 * Each line will be unique across the Date, and any line not conforming to
-	 * the above format is discarded. Any unparsable values will also have the
-	 * data for that day thrown out.
+	 * Each line will be unique across the Date, and any line not conforming to the
+	 * above format is discarded. Any unparsable values will also have the data for
+	 * that day thrown out.
 	 *
 	 * @param nasdaqInput The file handler to read from.
 	 */
@@ -209,10 +221,11 @@ public class TestAgainstTraining{
 	 * Converts the stringified versions of the Hypothesis into their respective
 	 * implementations.
 	 *
-	 * @param stumpInput	The file for reading in the Hypothesis.
-	 * @param stocks		The data to give the Hypothesis about the day's
-	 *                      movements.
-	 * @return				The Hypothesis that were successfully parsed.
+	 * @param stumpInput The file for reading in the Hypothesis.
+	 * @param stocks     The data to give the Hypothesis about the day's
+	 *                   movements.
+	 *
+	 * @return The Hypothesis that were successfully parsed.
 	 */
 	private ArrayList<Hypothesis> readHypothesis(Scanner stumpInput,
 												 HashMap<String, HashMap<String, ModelData>> stocks){

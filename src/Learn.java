@@ -50,6 +50,7 @@ public class Learn{
 	 * Market data that explicitly states how the market moved for a given date.
 	 */
 	private ArrayList<Example> nasdaq;
+	private int sumOfWeights;
 
 	public static void main(String[] args){
 		System.out.println("Looking for file '" + INPUT_PATH + "'...");
@@ -145,7 +146,7 @@ public class Learn{
 		Arrays.fill(exampleWeights, (1.0 / nasdaq.size()));
 
 		// We can iterate as many times as necessary
-		for(int iterations = 0; iterations < 500; iterations++){
+		for(int iterations = 0; iterations < 50; iterations++){
 			double error = 0.0;
 			int model = getBestModel(exampleWeights);
 			for(int ex = 0; ex < nasdaq.size(); ex++){
@@ -157,19 +158,23 @@ public class Learn{
 					error += exampleWeights[ex];
 				}
 			}
+			hypothesises.get(model).setWeight(Math.log((1.0 - error) / error));
 			for(int ex = 0; ex < nasdaq.size(); ex++){
 				int prediction = hypothesises.get(model).prediction(
 						nasdaq.get(ex));
 				int movement = nasdaq.get(ex).close > nasdaq.get(ex).open ?
 							   1 : -1;
 				if(prediction != 0 && prediction == movement){
-					exampleWeights[ex] *= error / (1.0 - error);
+					double sum = getSumOfWeights() / hypothesises.get(model).getWeight();
+					exampleWeights[ex] = exampleWeights[ex] * Math.exp(
+							-sum * prediction * movement);
+					int k = 0;
 				}
 			}
 
 			// Normalize our results for simplicity
 			normalize(exampleWeights);
-			hypothesises.get(model).setWeight(Math.log((1.0 - error) / error));
+
 		}
 
 		int k = 0;
@@ -260,13 +265,13 @@ public class Learn{
 			}
 
 			double open, close, high, low;
-			int volume;
+			long volume;
 			try{
 				open = Double.parseDouble(values[2]);
 				high = Double.parseDouble(values[3]);
 				low = Double.parseDouble(values[4]);
 				close = Double.parseDouble(values[5]);
-				volume = Integer.parseInt(values[6]);
+				volume = Long.parseLong(values[6]);
 			}
 			catch(NumberFormatException nfe){
 				// Ignore it, we can't do anything with bad data
@@ -376,9 +381,7 @@ public class Learn{
 				int movement =
 						nasdaq.get(ex).close > nasdaq.get(ex).open ? 1 : -1;
 				int pred = hypothesises.get(h).prediction(nasdaq.get(ex));
-				if(pred != 0 && movement == pred){
-					adjWeight += exampleWeights[ex];
-				}
+				adjWeight += movement * pred * exampleWeights[ex];
 			}
 			if(adjWeight > bestWeight){
 				bestModel = h;
@@ -386,5 +389,13 @@ public class Learn{
 			}
 		}
 		return bestModel;
+	}
+
+	public double getSumOfWeights(){
+		double sumOfWeights = 0.0;
+		for(Hypothesis h : hypothesises){
+			sumOfWeights += h.getWeight();
+		}
+		return sumOfWeights;
 	}
 }
