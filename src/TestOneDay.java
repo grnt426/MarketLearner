@@ -10,15 +10,8 @@ import java.util.Scanner;
  * To make a prediction, the best Hypothesis are read in, and then asked to
  * predict based on the market data for the day.  The result from the
  * Hypothesis is given a vote equal to its weight. A prediction for "Up" is
- * given if the total votes cast + 0.1 (a bias correcting factor) is greater
- * than 0.0.  Likewise, the prediction is "Down" if the total votes cast + 0.1
- * is less than 0.0. The bias correction factor comes from noticing the results
- * from the Hypothesis is biased-downwards.  In particular, values of -0.7 were
- * not uncommon for predicting "Down".  However, when the result should have
- * been "Up", values of -0.04 were rather common.  The bias factor tries to
- * correct for this incorrect classification. The exact value of 0.1 was chosen
- * because the results would then line up with the expected result for the six
- * test days tested against.
+ * given if the total votes cast is greater than 0.0.  Likewise, the prediction
+ * is "Down" if the total votes cast is less than 0.0.
  */
 public class TestOneDay{
 
@@ -61,13 +54,19 @@ public class TestOneDay{
 		ArrayList<Hypothesis> hypothesis = readHypothesis(stumps, stocks);
 
 		// Predict the result
+		// We just need a dummy example, it (shouldn't) be used by Hypothesis
+		// objects
 		Example ex = new Example("20091211", 0.0, 0.0, 0.0, 0.0, 0, 0.0);
 		double prediction = 0.0;
 		for(Hypothesis h : hypothesis){
 			prediction += h.prediction(ex) * h.getWeight();
 		}
 		System.out.print("Prediction: ");
-		System.out.println( (prediction + 0.1) > 0.0 ? "Up" : "Down");
+
+		// For predicting if the NASDAQ would go up or down, nothing fancy
+		// is done to the total votes cast as satisfactory results were
+		// produced.
+		System.out.println( prediction > 0.0 ? "Up" : "Down");
 	}
 
 	/**
@@ -110,7 +109,7 @@ public class TestOneDay{
 			double high = Double.parseDouble(values[3]);
 			double low = Double.parseDouble(values[4]);
 			double close = Double.parseDouble(values[5]);
-			int volume = Integer.parseInt(values[6]);
+			long volume = Long.parseLong(values[6]);
 			ModelData md = new ModelData(symbol, open, high, low, close,
 										 volume);
 			if(stocks.get(date) == null)

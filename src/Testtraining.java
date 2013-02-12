@@ -30,7 +30,7 @@ public class TestTraining{
 	 * is the one below. Results for this value and more are discussed in
 	 * README.md.
 	 */
-	private final int MAX_STUMPS = 5;
+	private final int MAX_STUMPS = 3;
 
 	public static void main(String[] args){
 		System.out.println("Looking for input file '" + INPUT_PATH + "'...");

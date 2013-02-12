@@ -9,13 +9,12 @@ public class TotalMovement implements Hypothesis{
 	private double weight;
 
 	public TotalMovement(HashMap<String, HashMap<String, ModelData>> data){
-		this.data = data;
+		TotalMovement.data = data;
 	}
 
 	public int prediction(Example ex){
 		if(data.get(ex.date) == null)
 			return 0;
-		int totalStocks = data.get(ex.date).size();
 		int totalUp = 0;
 		for(ModelData md : data.get(ex.date).values()){
 			totalUp += md.close > md.open ? 1 : -1;

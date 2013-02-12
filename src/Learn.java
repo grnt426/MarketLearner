@@ -50,7 +50,6 @@ public class Learn{
 	 * Market data that explicitly states how the market moved for a given date.
 	 */
 	private ArrayList<Example> nasdaq;
-	private int sumOfWeights;
 
 	public static void main(String[] args){
 		System.out.println("Looking for file '" + INPUT_PATH + "'...");
@@ -124,7 +123,7 @@ public class Learn{
 		}
 
 		// We can try and correlate total stock market movements
-		//hypothesises.add(new TotalMovement(stocks));
+		hypothesises.add(new TotalMovement(stocks));
 	}
 
 	/**
@@ -135,8 +134,6 @@ public class Learn{
 	 * probably didn't have data for that day, and so to avoid skewing the model in
 	 * any particular direction error is not accumulated or applied for those
 	 * days.
-	 *
-	 * @return The set of weights for each Hypothesis.
 	 */
 	private void boost(){
 
@@ -145,8 +142,11 @@ public class Learn{
 		double[] exampleWeights = new double[nasdaq.size()];
 		Arrays.fill(exampleWeights, (1.0 / nasdaq.size()));
 
-		// We can iterate as many times as necessary
-		for(int iterations = 0; iterations < 50; iterations++){
+		// After testing several values for iterations, below ~47 and above ~48
+		// the accuracy on the training data would taper off.  In the extreme,
+		// several weights would approach Infinity, suggesting that AdaBoost
+		// was starting to overfit some models.
+		for(int iterations = 0; iterations < 47; iterations++){
 			double error = 0.0;
 			int model = getBestModel(exampleWeights);
 			for(int ex = 0; ex < nasdaq.size(); ex++){
@@ -158,6 +158,10 @@ public class Learn{
 					error += exampleWeights[ex];
 				}
 			}
+
+			// Computing the error was done with this method as it produced
+			// reliable results, whereas the method the book gives never
+			// produced useful values.
 			hypothesises.get(model).setWeight(Math.log((1.0 - error) / error));
 			for(int ex = 0; ex < nasdaq.size(); ex++){
 				int prediction = hypothesises.get(model).prediction(
@@ -165,19 +169,16 @@ public class Learn{
 				int movement = nasdaq.get(ex).close > nasdaq.get(ex).open ?
 							   1 : -1;
 				if(prediction != 0 && prediction == movement){
-					double sum = getSumOfWeights() / hypothesises.get(model).getWeight();
+					double sum = getSumOfWeights()
+								 / hypothesises.get(model).getWeight();
 					exampleWeights[ex] = exampleWeights[ex] * Math.exp(
 							-sum * prediction * movement);
-					int k = 0;
 				}
 			}
 
 			// Normalize our results for simplicity
 			normalize(exampleWeights);
-
 		}
-
-		int k = 0;
 	}
 
 	/**
@@ -191,11 +192,9 @@ public class Learn{
 		for(double d : exampleWeights){
 			total += d;
 		}
-		int k = 0;
 		for(int w = 0; w < exampleWeights.length; w++){
 			exampleWeights[w] = exampleWeights[w] / total;
 		}
-		k++;
 	}
 
 	/**
@@ -207,10 +206,8 @@ public class Learn{
 	 */
 	private void outputStumps(BufferedWriter output){
 		try{
-			int weight = 0;
 			for(Hypothesis h : hypothesises){
 				output.write(h + "," + h.getWeight() + "\n");
-				weight++;
 			}
 		}
 		catch(IOException e){
