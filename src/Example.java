@@ -7,12 +7,12 @@ public class Example{
 	public double high;
 	public double low;
 	public double close;
-	public int volume;
+	public long volume;
 	public double adjustedClosed;
 
 	public Example(String date, double open, double high, double low,
 				   double close,
-				   int volume, double adjustedClosed){
+				   long volume, double adjustedClosed){
 		this.date = date;
 		this.open = open;
 		this.high = high;
